@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Revenue Cycle Management | Arabella Valerio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 font-sans">
+
+    <header class="bg-indigo-950 text-white py-6 px-8 shadow-xl border-b-4 border-indigo-500">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-black tracking-tighter uppercase leading-none">Hospital Revenue Cycle</h1>
+                <p class="text-indigo-300 text-sm font-bold uppercase tracking-widest mt-1">Cash Flow, Bad Debt, and Receivables Analytics</p>
+            </div>
+            <div class="text-right hidden md:block border-l border-indigo-800 pl-6">
+                <p class="text-xs text-indigo-200">Submitted to:  Engr. Val Patrick Fabregas, MTA</p>
+                <p class="text-xs text-white font-bold">Submitted by: Arabella S. Valerio | BSIT 3A</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-6 space-y-8">
+        
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-indigo-100 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2 tracking-widest">1. Filter by Insurance Provider</label>
+                <select id="insuranceFilter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block w-full p-3 font-bold cursor-pointer">
+                    <option value="All">All Insurance Providers</option>
+                    <option value="Aetna">Aetna</option>
+                    <option value="Cigna">Cigna</option>
+                    <option value="Humana">Humana</option>
+                    <option value="Medicare">Medicare</option>
+                    <option value="UHC">UnitedHealthcare (UHC)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2 tracking-widest">2. Filter by Billing Year</label>
+                <select id="yearFilter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block w-full p-3 font-bold cursor-pointer">
+                    <option value="All">All Fiscal Years</option>
+                    <option value="2024">Fiscal Year 2024</option>
+                    <option value="2025">Fiscal Year 2025</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-md border-l-8 border-indigo-600">
+                <p class="text-xs font-bold text-gray-400 uppercase">Gross Billed</p>
+                <p id="stat-billed" class="text-3xl font-black text-gray-900 leading-none">$143,364.80</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-md border-l-8 border-red-500">
+                <p class="text-xs font-bold text-gray-400 uppercase">Total Denials (Bad Debt)</p>
+                <p id="stat-denied" class="text-3xl font-black text-red-600 leading-none">$31,625.32</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-md border-l-8 border-emerald-500">
+                <p class="text-xs font-bold text-gray-400 uppercase">Net AR Receivables</p>
+                <p id="stat-receivables" class="text-3xl font-black text-emerald-600 leading-none">$136,623.41</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border h-96">
+                <h3 class="font-bold text-gray-800 mb-4 text-sm uppercase italic">1. AR Aging Summary (Over 181 Days)</h3>
+                <canvas id="agingChart"></canvas>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border h-96">
+                <h3 class="font-bold text-gray-800 mb-4 text-sm uppercase italic">2. Collection Ratio Trend (Billed vs Balance)</h3>
+                <canvas id="effectivenessChart"></canvas>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border h-96">
+                <h3 class="font-bold text-gray-800 mb-4 text-sm uppercase italic">3. Top Denial Reasons (By Status Code)</h3>
+                <canvas id="denialChart"></canvas>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border h-96">
+                <h3 class="font-bold text-gray-800 mb-4 text-sm uppercase italic">4. Team Workload (Claims Assigned)</h3>
+                <canvas id="teamChart"></canvas>
+            </div>
+        </div>
+
+        <footer class="text-center py-10 border-t border-gray-200">
+            <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-2">ITE3 Final Course Requirement</p>
+            <p class="text-xs text-gray-500">
+                Data Source: <a href="https://www.kaggle.com/datasets/rajkumarpadmanabhan/ca-hospital-dataset-q1-2025" target="_blank" class="text-indigo-600 underline font-bold">Kaggle Synthetic AR Medical Dataset | 2025</a>
+            </p>
+        </footer>
+    </main>
+
+    <script>
+        let charts = {};
+
+        // Integrated Multi-Variable Data
+        const dashboardData = {
+            All: { billed: 143364.80, denied: 31625.32, ar: 136623.41, aging: [0,0,0,0,136623], team: [72, 58, 36, 25, 9], denials: [26, 7, 6, 6, 5] },
+            "2024": { billed: 128980.14, denied: 26774.12, ar: 122238.75, aging: [0,0,0,0,122238], team: [65, 48, 35, 24, 9], denials: [22, 6, 6, 4, 4] },
+            "2025": { billed: 14384.66, denied: 4851.20, ar: 14384.66, aging: [0,0,0,0,14384], team: [7, 10, 1, 1, 0], denials: [4, 1, 0, 2, 1] },
+            Aetna: { billed: 21759.07, denied: 4659.96, ar: 21486.73, aging: [0,0,0,0,21486], team: [13, 9, 5, 3, 1], denials: [5, 1, 1, 1, 1] },
+            Cigna: { billed: 24285.47, denied: 7649.82, ar: 23437.91, aging: [0,0,0,0,23437], team: [10, 12, 8, 2, 1], denials: [5, 2, 2, 2, 1] },
+            Humana: { billed: 14856.86, denied: 2674.58, ar: 14620.33, aging: [0,0,0,0,14620], team: [13, 3, 4, 1, 1], denials: [1, 1, 1, 1, 1] },
+            Medicare: { billed: 26034.19, denied: 2393.54, ar: 23899.65, aging: [0,0,0,0,23899], team: [14, 6, 2, 9, 4], denials: [3, 1, 1, 1, 1] },
+            UHC: { billed: 18059.30, denied: 4011.71, ar: 16527.24, aging: [0,0,0,0,16527], team: [6, 6, 5, 5, 2], denials: [3, 3, 0, 1, 0] }
+        };
+
+        function updateUI() {
+            const ins = document.getElementById('insuranceFilter').value;
+            const year = document.getElementById('yearFilter').value;
+            
+            // Priority filtering logic
+            let d = (ins !== "All") ? dashboardData[ins] : (year !== "All") ? dashboardData[year] : dashboardData.All;
+
+            document.getElementById('stat-billed').innerText = '$' + d.billed.toLocaleString();
+            document.getElementById('stat-denied').innerText = '$' + d.denied.toLocaleString();
+            document.getElementById('stat-receivables').innerText = '$' + d.ar.toLocaleString();
+
+            charts.aging.data.datasets[0].data = d.aging;
+            charts.aging.update();
+            charts.denial.data.datasets[0].data = d.denials;
+            charts.denial.update();
+            charts.team.data.datasets[0].data = d.team;
+            charts.team.update();
+        }
+
+        window.onload = function() {
+            // Chart 1: Aging
+            charts.aging = new Chart(document.getElementById('agingChart'), {
+                type: 'bar',
+                data: { labels: ['0-30', '31-60', '61-90', '91-120', '181+'], datasets: [{ label: 'AR Balance ($)', data: dashboardData.All.aging, backgroundColor: '#6366f1' }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // Chart 2: Collection Effectiveness
+            charts.eff = new Chart(document.getElementById('effectivenessChart'), {
+                type: 'line',
+                data: { 
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'], 
+                    datasets: [
+                        { label: 'Billed', data: [35000, 42000, 31000, 35364], borderColor: '#6366f1', fill: false },
+                        { label: 'Balance', data: [32000, 40000, 29000, 35623], borderColor: '#ef4444', fill: false }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // Chart 3: Denials
+            charts.denial = new Chart(document.getElementById('denialChart'), {
+                type: 'doughnut',
+                data: { 
+                    labels: ['Claim Error', 'Incorrect Sub', 'Med Necessity', 'Invalid Code', 'Other'], 
+                    datasets: [{ data: dashboardData.All.denials, backgroundColor: ['#312e81', '#4338ca', '#4f46e5', '#6366f1', '#818cf8'] }] 
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            // Chart 4: Team
+            charts.team = new Chart(document.getElementById('teamChart'), {
+                type: 'bar',
+                indexAxis: 'y',
+                data: { labels: ['AR Team', 'Billing Team', 'Coding Team', 'Assist', 'Payment'], datasets: [{ label: 'Claims', data: dashboardData.All.team, backgroundColor: '#10b981' }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            document.getElementById('insuranceFilter').addEventListener('change', updateUI);
+            document.getElementById('yearFilter').addEventListener('change', updateUI);
+        };
+    </script>
+</body>
+</html>
